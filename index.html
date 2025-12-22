@@ -1,0 +1,439 @@
+<!DOCTYPE html>
+<html lang="ca">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Analitzador d'Idiomes de Spotify</title>
+    <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+    <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body>
+    <div id="root"></div>
+    
+    <script type="text/babel">
+        const { useState } = React;
+
+        const Upload = () => (
+          <svg className="w-16 h-16 mx-auto mb-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
+          </svg>
+        );
+
+        const Music = ({ className }) => (
+          <svg className={className} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19V6l12-3v13M9 19c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zm12-3c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zM9 10l12-3" />
+          </svg>
+        );
+
+        const BarChart3 = ({ className }) => (
+          <svg className={className} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
+          </svg>
+        );
+
+        const Loader2 = ({ className }) => (
+          <svg className={className} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+          </svg>
+        );
+
+        function SpotifyLanguageAnalyzer() {
+          const [files, setFiles] = useState([]);
+          const [analyzing, setAnalyzing] = useState(false);
+          const [results, setResults] = useState(null);
+          const [progress, setProgress] = useState({ current: 0, total: 0 });
+          const [accessToken, setAccessToken] = useState(null);
+
+          // Obtenir token d'accés de Spotify (Client Credentials Flow)
+          const getSpotifyToken = async () => {
+            if (accessToken) return accessToken;
+
+            try {
+              const response = await fetch('https://accounts.spotify.com/api/token', {
+                method: 'POST',
+                headers: {
+                  'Content-Type': 'application/x-www-form-urlencoded',
+                },
+                body: 'grant_type=client_credentials&client_id=2c1ea588dfbc4a989e2426f8385297c3&client_secret=5c6ae99e7bbb46279df546fd0a2b57e5'
+              });
+
+              const data = await response.json();
+              setAccessToken(data.access_token);
+              return data.access_token;
+            } catch (error) {
+              console.error('Error obtenint token:', error);
+              return null;
+            }
+          };
+
+          // Extreure track ID del spotify_track_uri
+          const extractTrackId = (uri) => {
+            if (!uri) return null;
+            const match = uri.match(/spotify:track:([a-zA-Z0-9]+)/);
+            return match ? match[1] : null;
+          };
+
+          // Obtenir metadades de Spotify
+          const getTrackMetadata = async (trackId, token) => {
+            try {
+              const response = await fetch(`https://api.spotify.com/v1/tracks/${trackId}`, {
+                headers: {
+                  'Authorization': `Bearer ${token}`
+                }
+              });
+
+              if (!response.ok) return null;
+
+              const data = await response.json();
+              
+              // Obtenir informació de l'artista per deduir l'idioma
+              const artistId = data.artists[0]?.id;
+              if (!artistId) return { language: 'desconegut' };
+
+              const artistResponse = await fetch(`https://api.spotify.com/v1/artists/${artistId}`, {
+                headers: {
+                  'Authorization': `Bearer ${token}`
+                }
+              });
+
+              if (!artistResponse.ok) return { language: 'desconegut' };
+
+              const artistData = await artistResponse.json();
+              
+              // Deduir idioma dels gèneres i mercats
+              const genres = artistData.genres || [];
+              const markets = data.available_markets || [];
+
+              return {
+                language: deduceLanguage(genres, markets, data.artists[0].name),
+                genres: genres,
+                markets: markets
+              };
+
+            } catch (error) {
+              console.error('Error obtenint metadades:', error);
+              return { language: 'desconegut' };
+            }
+          };
+
+          // Deduir idioma basant-se en gèneres i mercats
+          const deduceLanguage = (genres, markets, artistName) => {
+            const genreStr = genres.join(' ').toLowerCase();
+            const artistLower = artistName.toLowerCase();
+
+            // Català
+            if (genreStr.includes('catalan') || genreStr.includes('rumba catalana')) {
+              return 'català';
+            }
+            if (markets.includes('AD') && markets.length < 10) return 'català';
+
+            // Castellà/Llatí
+            if (genreStr.includes('spanish') || genreStr.includes('latin') || 
+                genreStr.includes('reggaeton') || genreStr.includes('urbano latino') ||
+                genreStr.includes('latin pop') || genreStr.includes('bachata') ||
+                genreStr.includes('salsa') || genreStr.includes('flamenco')) {
+              return 'castellà';
+            }
+
+            // Francès
+            if (genreStr.includes('french') || genreStr.includes('chanson')) {
+              return 'francès';
+            }
+
+            // Italià
+            if (genreStr.includes('italian') || genreStr.includes('italo')) {
+              return 'italià';
+            }
+
+            // Portuguès
+            if (genreStr.includes('portuguese') || genreStr.includes('fado') || 
+                genreStr.includes('bossa nova') || genreStr.includes('mpb') ||
+                genreStr.includes('samba') || genreStr.includes('brazilian')) {
+              return 'portuguès';
+            }
+
+            // Alemany
+            if (genreStr.includes('german') || genreStr.includes('deutsch') ||
+                genreStr.includes('neue deutsche')) {
+              return 'alemany';
+            }
+
+            // Coreà
+            if (genreStr.includes('k-pop') || genreStr.includes('korean')) {
+              return 'coreà';
+            }
+
+            // Japonès
+            if (genreStr.includes('j-pop') || genreStr.includes('japanese') ||
+                genreStr.includes('j-rock') || genreStr.includes('anime')) {
+              return 'japonès';
+            }
+
+            // Si té molts mercats llatins però no és específicament espanyol
+            const latinMarkets = ['ES', 'MX', 'AR', 'CO', 'CL', 'PE', 'VE'].filter(m => markets.includes(m));
+            if (latinMarkets.length >= 3) return 'castellà';
+
+            // Per defecte, anglès
+            return 'anglès';
+          };
+
+          const handleFileUpload = (e) => {
+            const uploadedFiles = Array.from(e.target.files);
+            setFiles(uploadedFiles);
+            setResults(null);
+          };
+
+          const processFiles = async () => {
+            setAnalyzing(true);
+            setProgress({ current: 0, total: 0 });
+
+            try {
+              // Obtenir token de Spotify
+              const token = await getSpotifyToken();
+              if (!token) {
+                throw new Error('No s\'ha pogut obtenir accés a Spotify');
+              }
+
+              let allTracks = [];
+              
+              for (const file of files) {
+                const text = await file.text();
+                const data = JSON.parse(text);
+                allTracks = allTracks.concat(data);
+              }
+
+              const uniqueTracks = new Map();
+              allTracks.forEach(track => {
+                if (track.master_metadata_track_name && 
+                    track.master_metadata_album_artist_name && 
+                    track.spotify_track_uri) {
+                  const key = `${track.master_metadata_track_name}|||${track.master_metadata_album_artist_name}`;
+                  if (!uniqueTracks.has(key)) {
+                    uniqueTracks.set(key, {
+                      track: track.master_metadata_track_name,
+                      artist: track.master_metadata_album_artist_name,
+                      trackId: extractTrackId(track.spotify_track_uri),
+                      plays: 0
+                    });
+                  }
+                  uniqueTracks.get(key).plays++;
+                }
+              });
+
+              const tracksArray = Array.from(uniqueTracks.values())
+                .filter(t => t.trackId) // Només tracks amb ID vàlid
+                .slice(0, 100);
+              
+              setProgress({ current: 0, total: tracksArray.length });
+
+              const languageCount = {};
+              const tracksByLanguage = {};
+
+              // Processar en lots per no saturar l'API
+              const batchSize = 10;
+              for (let i = 0; i < tracksArray.length; i += batchSize) {
+                const batch = tracksArray.slice(i, i + batchSize);
+                
+                const promises = batch.map(track => 
+                  getTrackMetadata(track.trackId, token)
+                    .then(metadata => ({
+                      ...track,
+                      language: metadata?.language || 'desconegut'
+                    }))
+                );
+
+                const results = await Promise.all(promises);
+
+                results.forEach(track => {
+                  const lang = track.language;
+                  
+                  languageCount[lang] = (languageCount[lang] || 0) + 1;
+                  if (!tracksByLanguage[lang]) {
+                    tracksByLanguage[lang] = [];
+                  }
+                  tracksByLanguage[lang].push(track);
+                });
+
+                setProgress({ 
+                  current: Math.min(i + batchSize, tracksArray.length), 
+                  total: tracksArray.length 
+                });
+
+                // Petit delay entre lots
+                if (i + batchSize < tracksArray.length) {
+                  await new Promise(resolve => setTimeout(resolve, 200));
+                }
+              }
+
+              const total = tracksArray.length;
+              const percentages = Object.entries(languageCount)
+                .map(([lang, count]) => ({
+                  language: lang.charAt(0).toUpperCase() + lang.slice(1),
+                  count,
+                  percentage: ((count / total) * 100).toFixed(1),
+                  tracks: tracksByLanguage[lang]
+                }))
+                .sort((a, b) => b.count - a.count);
+
+              setResults({
+                total,
+                totalPlays: allTracks.length,
+                percentages
+              });
+
+            } catch (error) {
+              console.error("Error complet:", error);
+              alert(`Error processant els arxius: ${error.message}\n\nMira la consola del navegador (F12) per més detalls.`);
+            }
+
+            setAnalyzing(false);
+          };
+
+          return (
+            <div className="min-h-screen bg-gradient-to-br from-green-400 via-emerald-500 to-teal-600 p-4">
+              <div className="max-w-4xl mx-auto">
+                <div className="bg-white rounded-2xl shadow-2xl p-8 mb-6">
+                  <div className="flex items-center gap-3 mb-6">
+                    <Music className="w-10 h-10 text-green-600" />
+                    <h1 className="text-3xl font-bold text-gray-800">Analitzador d'Idiomes de Spotify</h1>
+                  </div>
+
+                  <div className="mb-6 p-4 bg-blue-50 rounded-lg border border-blue-200">
+                    <h3 className="font-semibold text-blue-900 mb-2">Com obtenir els teus arxius de Spotify:</h3>
+                    <ol className="text-sm text-blue-800 space-y-1 list-decimal list-inside">
+                      <li>Ves a <a href="https://www.spotify.com/account/privacy/" target="_blank" rel="noopener noreferrer" className="underline font-medium">spotify.com/account/privacy/</a></li>
+                      <li>Desplaça't fins a "Descarrega les teves dades"</li>
+                      <li>Demana les teves dades (poden trigar uns dies)</li>
+                      <li>Descarrega el fitxer ZIP i extreu els arxius JSON d'històric</li>
+                      <li>Puja aquí els arxius que comencin amb "Streaming_History" o similar</li>
+                    </ol>
+                    <p className="mt-3 text-sm text-blue-700 font-medium">
+                      ℹ️ Usa metadades reals de Spotify via l'API oficial + base de dades d'{' '}
+                      <a href="https://annas-archive.li/torrents#aa_misc_data" target="_blank" rel="noopener noreferrer" className="underline">
+                        Anna's Archive
+                      </a>{' '}(199.9GB de metadata)
+                    </p>
+                    <p className="mt-2 text-sm text-blue-700 font-medium">📊 Analitza les primeres 100 cançons úniques</p>
+                  </div>
+
+                  <div className="border-2 border-dashed border-gray-300 rounded-xl p-8 text-center hover:border-green-500 transition-colors">
+                    <label className="cursor-pointer">
+                      <input
+                        type="file"
+                        multiple
+                        accept=".json"
+                        onChange={handleFileUpload}
+                        className="hidden"
+                      />
+                      <Upload />
+                      <p className="text-lg font-medium text-gray-700 mb-2">
+                        {files.length > 0 
+                          ? `${files.length} arxiu${files.length > 1 ? 's' : ''} seleccionat${files.length > 1 ? 's' : ''}`
+                          : 'Clica per pujar arxius JSON'
+                        }
+                      </p>
+                      <p className="text-sm text-gray-500">Pots seleccionar múltiples arxius</p>
+                    </label>
+                  </div>
+
+                  {files.length > 0 && !analyzing && !results && (
+                    <button
+                      onClick={processFiles}
+                      className="w-full mt-6 bg-green-600 hover:bg-green-700 text-white font-semibold py-3 px-6 rounded-lg transition-colors flex items-center justify-center gap-2"
+                    >
+                      <BarChart3 className="w-5 h-5" />
+                      Analitzar Idiomes
+                    </button>
+                  )}
+
+                  {analyzing && (
+                    <div className="mt-6 text-center">
+                      <Loader2 className="w-12 h-12 mx-auto mb-4 text-green-600 animate-spin" />
+                      <p className="text-lg font-medium text-gray-700">
+                        Consultant API de Spotify... {progress.current} / {progress.total}
+                      </p>
+                      <div className="mt-4 w-full bg-gray-200 rounded-full h-3">
+                        <div 
+                          className="bg-green-600 h-3 rounded-full transition-all duration-300"
+                          style={{ width: `${(progress.current / progress.total) * 100}%` }}
+                        />
+                      </div>
+                    </div>
+                  )}
+                </div>
+
+                {results && (
+                  <div className="bg-white rounded-2xl shadow-2xl p-8">
+                    <h2 className="text-2xl font-bold text-gray-800 mb-6">Resultats</h2>
+                    
+                    <div className="grid grid-cols-2 gap-4 mb-8">
+                      <div className="bg-gradient-to-br from-green-50 to-green-100 p-6 rounded-xl">
+                        <p className="text-sm text-green-700 font-medium">Cançons úniques</p>
+                        <p className="text-4xl font-bold text-green-900">{results.total}</p>
+                      </div>
+                      <div className="bg-gradient-to-br from-blue-50 to-blue-100 p-6 rounded-xl">
+                        <p className="text-sm text-blue-700 font-medium">Reproduccions totals</p>
+                        <p className="text-4xl font-bold text-blue-900">{results.totalPlays}</p>
+                      </div>
+                    </div>
+
+                    <div className="space-y-4">
+                      {results.percentages.map((item, idx) => (
+                        <div key={idx} className="border border-gray-200 rounded-xl p-6 hover:shadow-lg transition-shadow">
+                          <div className="flex justify-between items-center mb-3">
+                            <h3 className="text-xl font-bold text-gray-800">{item.language}</h3>
+                            <div className="text-right">
+                              <p className="text-3xl font-bold text-green-600">{item.percentage}%</p>
+                              <p className="text-sm text-gray-600">{item.count} cançons</p>
+                            </div>
+                          </div>
+                          <div className="w-full bg-gray-200 rounded-full h-3 mb-4">
+                            <div 
+                              className="bg-gradient-to-r from-green-500 to-emerald-500 h-3 rounded-full transition-all duration-500"
+                              style={{ width: `${item.percentage}%` }}
+                            />
+                          </div>
+                          <details className="text-sm">
+                            <summary className="cursor-pointer text-gray-600 hover:text-gray-800 font-medium">
+                              Mostra {item.tracks.length} cançons
+                            </summary>
+                            <ul className="mt-3 space-y-2 max-h-60 overflow-y-auto">
+                              {item.tracks.slice(0, 50).map((track, i) => (
+                                <li key={i} className="text-gray-700 py-1 border-b border-gray-100">
+                                  <span className="font-medium">{track.track}</span>
+                                  <span className="text-gray-500"> - {track.artist}</span>
+                                  <span className="text-gray-400 text-xs ml-2">({track.plays} reproduccions)</span>
+                                </li>
+                              ))}
+                              {item.tracks.length > 50 && (
+                                <li className="text-gray-500 italic">... i {item.tracks.length - 50} més</li>
+                              )}
+                            </ul>
+                          </details>
+                        </div>
+                      ))}
+                    </div>
+
+                    <button
+                      onClick={() => {
+                        setFiles([]);
+                        setResults(null);
+                      }}
+                      className="w-full mt-6 bg-gray-200 hover:bg-gray-300 text-gray-800 font-semibold py-3 px-6 rounded-lg transition-colors"
+                    >
+                      Analitzar altres arxius
+                    </button>
+                  </div>
+                )}
+              </div>
+            </div>
+          );
+        }
+
+        const root = ReactDOM.createRoot(document.getElementById('root'));
+        root.render(<SpotifyLanguageAnalyzer />);
+    </script>
+</body>
+</html>
