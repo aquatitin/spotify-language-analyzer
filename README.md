@@ -1,131 +1,67 @@
-# 🎵 Analitzador d'Idiomes de Spotify
+# 🎵 Analitzador de Llengües de Spotify
 
-Aplicació web que analitza els teus arxius de dades de Spotify i et mostra el percentatge de cançons que escoltes en cada idioma.
+Aplicació web que analitza els teus fitxers de dades de Spotify i et mostra en quines llengües són les cançons que escoltes. També inclou un cercador per consultar la llengua d'una cançó concreta (p. ex. «Sort de tu» d'Oques Grasses → català).
+
+## 💡 Com resol el problema de la base de dades
+
+No existeix cap base de dades pública que relacioni cançó i llengua, així que l'aplicació la construeix al vol:
+
+1. **Obté la lletra** de cada cançó des de [LRCLIB](https://lrclib.net), una base de dades de lletres oberta, gratuïta i sense clau d'API.
+2. **Detecta la llengua** de la lletra amb [franc](https://github.com/wooorm/franc), un detector estadístic d'idiomes (n-grames) que s'executa al navegador. Com que analitza el text complet de la lletra, retorna la **llengua majoritària** de la cançó.
+3. **Desa els resultats** en una memòria cau local (`localStorage`) perquè les anàlisis següents siguin instantànies i no es repeteixin consultes.
+
+Les cançons sense lletra a LRCLIB es classifiquen com a «Desconeguda», i les marcades com a instrumentals, com a «Instrumental».
 
 ## ✨ Característiques
 
-- 📊 Analitza les primeres 100 cançons úniques dels teus arxius de Spotify
-- 🌍 Detecta idiomes: català, castellà, anglès, francès, italià, portuguès, alemany, coreà, japonès i altres
-- 🎯 Usa l'API oficial de Spotify per obtenir metadades reals (gèneres, mercats disponibles)
-- 📈 Mostra percentatges i número de reproduccions per idioma
-- 🔍 Llista detallada de cançons per cada idioma
-
-## 🚀 Demo en viu
-
-Disponible a: `https://el-teu-usuari.github.io/spotify-language-analyzer`
+- 📊 Analitza el teu historial complet (o les 100/250/500/1.000 cançons més escoltades)
+- 🔍 Cercador individual: escriu títol i artista i et diu la llengua
+- 🌍 Reconeix més de 35 llengües (català, castellà, anglès, francès, gallec, basc, japonès, coreà…)
+- 📈 Percentatges, recompte de cançons i de reproduccions per llengua
+- 📥 Exportació dels resultats en CSV
+- 🌙 Mode clar i fosc automàtic
+- 🔒 Tot s'executa al navegador: les teves dades no s'envien a cap servidor
 
 ## 📖 Com usar-ho
 
 1. **Demana les teves dades a Spotify:**
    - Ves a [spotify.com/account/privacy/](https://www.spotify.com/account/privacy/)
-   - Desplaça't fins a "Descarrega les teves dades"
-   - Demana les dades (poden trigar uns dies)
-   - Descarrega el ZIP i extreu els arxius JSON
+   - Demana les teves dades (poden trigar uns dies)
+   - Descarrega el ZIP i extreu-ne els fitxers JSON
 
-2. **Puja els arxius:**
-   - Obre l'aplicació
-   - Puja els arxius que comencin amb `Streaming_History` o similar
-   - Clica "Analitzar Idiomes"
+2. **Puja els fitxers a l'aplicació.** S'accepten tots aquests formats:
+   - `Streaming_History_Audio_*.json` (historial estès)
+   - `StreamingHistory_music_*.json` (historial simple)
+   - `endsong_*.json` (exportacions antigues)
+   - `YourLibrary.json` (cançons desades)
 
-3. **Veu els resultats:**
-   - Percentatge de cançons per idioma
-   - Llista completa de cançons
-   - Estadístiques de reproduccions
+3. **Clica «Analitza les llengües»** i espera que acabi (les reproduccions de menys de 10 segons i els pòdcasts es descarten automàticament).
 
 ## 🛠️ Tecnologies
 
-- **Frontend:** React (via CDN), Tailwind CSS
-- **API:** Spotify Web API
-- **Inspiració:** [Anna's Archive - Backing up Spotify](https://annas-archive.li/blog/backing-up-spotify.html)
-- **Metadades:** Usa la base de dades de 199.9GB de metadata de Spotify d'Anna's Archive
+- **Frontend:** HTML + CSS + JavaScript sense dependències de compilació (un sol fitxer, `index.html`)
+- **Lletres:** [LRCLIB API](https://lrclib.net/docs) (oberta, sense autenticació, amb CORS)
+- **Detecció d'idioma:** [franc](https://github.com/wooorm/franc) carregat com a mòdul ES des de CDN
 
-## 📁 Estructura del projecte
-
-```
-spotify-language-analyzer/
-├── index.html          # Frontend (aplicació React)
-├── api/
-│   └── analyze.js      # Backend serverless (opcional, per IA)
-├── vercel.json         # Configuració Vercel
-├── package.json        # Dependències
-└── README.md          # Aquest fitxer
-```
-
-## 🔧 Instal·lació local
+## 🔧 Ús local
 
 ```bash
-# Clonar el repositori
-git clone https://github.com/el-teu-usuari/spotify-language-analyzer.git
+git clone https://github.com/aquatitin/spotify-language-analyzer.git
 cd spotify-language-analyzer
-
-# Obrir index.html directament al navegador
-open index.html
+# Serveix el fitxer amb qualsevol servidor estàtic, per exemple:
+python3 -m http.server 8000
+# i obre http://localhost:8000
 ```
 
-## 🌐 Desplegar a GitHub Pages
+## 🌐 Desplegament a GitHub Pages
 
-```bash
-# 1. Puja el codi a GitHub
-git add .
-git commit -m "Afegir analitzador de Spotify"
-git push origin main
-
-# 2. Activa GitHub Pages
-# Ves a Settings > Pages
-# Selecciona: main branch, /root
-# Guarda i espera uns minuts
-```
-
-## 🎯 Com funciona la detecció d'idiomes
-
-L'aplicació usa múltiples estratègies per detectar l'idioma:
-
-1. **Gèneres musicals:** Detecta etiquetes com "catalan", "spanish", "k-pop", "j-pop", "french", etc.
-2. **Mercats disponibles:** Analitza en quins països es distribueix la cançó
-3. **Metadades de l'artista:** Consulta la informació oficial de Spotify
-4. **Fallback intel·ligent:** Si no detecta l'idioma, assumeix anglès per defecte
-
-### Exemples de detecció:
-
-- **Català:** Gènere "rumba catalana" o "catalan folk"
-- **Castellà:** Gèneres "reggaeton", "latin pop", "urbano latino"
-- **Coreà:** Gènere "k-pop" o "korean pop"
-- **Japonès:** Gèneres "j-pop", "j-rock", "anime"
-
-## 📊 Font de dades
-
-Aquest projecte està inspirat pel treball d'Anna's Archive sobre backup de Spotify:
-- 📝 [Blog post: Backing up Spotify](https://annas-archive.li/blog/backing-up-spotify.html)
-- 💾 [Torrent de metadades](https://annas-archive.li/torrents#aa_misc_data) (199.9GB)
-- 🔍 Conté informació de gèneres, popularitat, artistes i mercats per milions de cançons
-
-## 🤝 Contribucions
-
-Les contribucions són benvingudes! Si vols millorar la detecció d'idiomes o afegir noves funcionalitats:
-
-1. Fes un fork del projecte
-2. Crea una branca (`git checkout -b feature/millora`)
-3. Fes commit dels canvis (`git commit -m 'Afegir millora'`)
-4. Puja la branca (`git push origin feature/millora`)
-5. Obre un Pull Request
-
-## 📝 Llicència
-
-MIT License - Lliure per usar, modificar i distribuir.
-
-## 🙏 Agraïments
-
-- **Anna's Archive** per la documentació i base de dades de metadades
-- **Spotify** per l'API pública
-- **Comunitat open source** per les eines usades
+Settings → Pages → branca `main`, carpeta `/root`. En ser una pàgina 100% estàtica no cal cap backend.
 
 ## ⚠️ Nota de privadesa
 
-Aquesta aplicació:
-- ✅ Processa les dades **localment** al teu navegador
-- ✅ No envia les teves dades personals a cap servidor
-- ✅ Només consulta l'API pública de Spotify amb els IDs de les cançons
-- ✅ No guarda cap informació sobre els teus hàbits d'escolta
+- ✅ Les teves dades de Spotify es processen **localment** al navegador
+- ✅ Només s'envien a LRCLIB els noms de cançó i artista per obtenir-ne la lletra
+- ✅ No es guarda cap informació dels teus hàbits d'escolta fora del teu navegador
 
 ---
 
