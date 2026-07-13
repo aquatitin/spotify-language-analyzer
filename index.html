@@ -1,439 +1,620 @@
 <!DOCTYPE html>
 <html lang="ca">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Analitzador d'Idiomes de Spotify</title>
-    <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
-    <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
-    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
-    <script src="https://cdn.tailwindcss.com"></script>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Analitzador de Llengües de Spotify</title>
+<style>
+  :root {
+    --page: #f9f9f7;
+    --surface: #fcfcfb;
+    --ink: #0b0b0b;
+    --ink-2: #52514e;
+    --muted: #898781;
+    --hairline: #e1e0d9;
+    --border: rgba(11, 11, 11, 0.10);
+    --accent: #008300;
+    --accent-ink: #006300;
+    --rail: #efeee9;
+    --chip: #f0efec;
+    --danger: #d03b3b;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --page: #0d0d0d;
+      --surface: #1a1a19;
+      --ink: #ffffff;
+      --ink-2: #c3c2b7;
+      --muted: #898781;
+      --hairline: #2c2c2a;
+      --border: rgba(255, 255, 255, 0.10);
+      --accent: #0ca30c;
+      --accent-ink: #0ca30c;
+      --rail: #262624;
+      --chip: #383835;
+      --danger: #e66767;
+    }
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    background: var(--page);
+    color: var(--ink);
+    font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
+    line-height: 1.5;
+  }
+  .wrap { max-width: 880px; margin: 0 auto; padding: 24px 16px 64px; }
+  header h1 { font-size: 1.7rem; margin: 8px 0 4px; display: flex; align-items: center; gap: 10px; }
+  header h1 svg { color: var(--accent); flex: none; }
+  header p.sub { color: var(--ink-2); margin: 0 0 20px; }
+
+  .tabs { display: flex; gap: 4px; border-bottom: 1px solid var(--hairline); margin-bottom: 20px; }
+  .tabs button {
+    appearance: none; background: none; border: none; cursor: pointer;
+    font: inherit; font-weight: 600; color: var(--muted);
+    padding: 10px 14px; border-bottom: 2px solid transparent; margin-bottom: -1px;
+  }
+  .tabs button.active { color: var(--ink); border-bottom-color: var(--accent); }
+  .tabs button:hover { color: var(--ink); }
+
+  .card {
+    background: var(--surface); border: 1px solid var(--border);
+    border-radius: 12px; padding: 20px; margin-bottom: 16px;
+  }
+  .card h2 { margin: 0 0 10px; font-size: 1.15rem; }
+  .help ol { margin: 8px 0 0; padding-left: 20px; color: var(--ink-2); font-size: 0.92rem; }
+  .help a { color: var(--accent-ink); }
+  details.how { margin-top: 10px; font-size: 0.92rem; color: var(--ink-2); }
+  details.how summary { cursor: pointer; font-weight: 600; color: var(--ink); }
+
+  .dropzone {
+    border: 2px dashed var(--hairline); border-radius: 12px;
+    padding: 32px 16px; text-align: center; cursor: pointer;
+    transition: border-color 0.15s, background 0.15s;
+  }
+  .dropzone:hover, .dropzone.over { border-color: var(--accent); background: var(--rail); }
+  .dropzone p { margin: 6px 0 0; color: var(--ink-2); }
+  .dropzone .big { font-weight: 600; color: var(--ink); font-size: 1.05rem; }
+  .dropzone svg { color: var(--muted); }
+
+  .controls { display: flex; flex-wrap: wrap; gap: 12px; align-items: center; margin-top: 16px; }
+  select, input[type="text"] {
+    font: inherit; color: var(--ink); background: var(--surface);
+    border: 1px solid var(--hairline); border-radius: 8px; padding: 9px 12px;
+  }
+  input[type="text"] { flex: 1; min-width: 160px; }
+  button.primary {
+    font: inherit; font-weight: 600; cursor: pointer; border: none;
+    background: var(--accent); color: #fff; border-radius: 8px; padding: 10px 18px;
+  }
+  button.primary:hover { filter: brightness(1.1); }
+  button.primary:disabled { opacity: 0.5; cursor: default; }
+  button.ghost {
+    font: inherit; cursor: pointer; background: none; color: var(--ink-2);
+    border: 1px solid var(--hairline); border-radius: 8px; padding: 9px 14px;
+  }
+  button.ghost:hover { color: var(--ink); border-color: var(--muted); }
+
+  .progress { margin-top: 16px; }
+  .progress .txt { display: flex; justify-content: space-between; font-size: 0.9rem; color: var(--ink-2); margin-bottom: 6px; }
+  .progress .rail { background: var(--rail); border-radius: 4px; height: 8px; overflow: hidden; }
+  .progress .fill { background: var(--accent); height: 100%; border-radius: 0 4px 4px 0; transition: width 0.2s; }
+
+  .tiles { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 12px; margin-bottom: 16px; }
+  .tile { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 14px 16px; }
+  .tile .label { font-size: 0.8rem; color: var(--muted); font-weight: 600; text-transform: uppercase; letter-spacing: 0.03em; }
+  .tile .value { font-size: 1.7rem; font-weight: 700; margin-top: 2px; }
+
+  .langrow { padding: 12px 0; border-bottom: 1px solid var(--hairline); }
+  .langrow:last-child { border-bottom: none; }
+  .langrow .head { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; }
+  .langrow .name { font-weight: 600; }
+  .langrow .nums { color: var(--ink-2); font-size: 0.9rem; white-space: nowrap; }
+  .langrow .nums b { color: var(--ink); font-size: 1.05rem; }
+  .langrow .rail { background: var(--rail); border-radius: 4px; height: 10px; margin-top: 6px; overflow: hidden; }
+  .langrow .fill { background: var(--accent); height: 100%; border-radius: 0 4px 4px 0; min-width: 2px; }
+  .langrow.dim .fill { background: var(--muted); }
+  .langrow details { margin-top: 8px; font-size: 0.9rem; }
+  .langrow summary { cursor: pointer; color: var(--ink-2); }
+  .langrow summary:hover { color: var(--ink); }
+  .langrow ul { margin: 8px 0 0; padding: 0; list-style: none; max-height: 260px; overflow-y: auto; }
+  .langrow li { padding: 4px 0; border-bottom: 1px solid var(--hairline); color: var(--ink-2); }
+  .langrow li b { color: var(--ink); font-weight: 600; }
+  .langrow li .plays { color: var(--muted); font-size: 0.82rem; }
+
+  .result-item { padding: 12px 0; border-bottom: 1px solid var(--hairline); display: flex; justify-content: space-between; gap: 12px; align-items: center; }
+  .result-item:last-child { border-bottom: none; }
+  .result-item .meta { color: var(--ink-2); font-size: 0.9rem; }
+  .chip {
+    display: inline-block; background: var(--chip); color: var(--ink);
+    font-size: 0.85rem; font-weight: 600; padding: 4px 12px; border-radius: 999px; white-space: nowrap;
+  }
+  .chip.lang { background: var(--accent); color: #fff; }
+  .msg { color: var(--ink-2); padding: 8px 0; }
+  .msg.error { color: var(--danger); }
+  footer { margin-top: 32px; color: var(--muted); font-size: 0.85rem; text-align: center; }
+  .hidden { display: none !important; }
+</style>
 </head>
 <body>
-    <div id="root"></div>
-    
-    <script type="text/babel">
-        const { useState } = React;
+<div class="wrap">
+  <header>
+    <h1>
+      <svg width="30" height="30" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9 19V6l12-3v13M9 19c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zm12-3c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zM9 10l12-3"/></svg>
+      Analitzador de Llengües de Spotify
+    </h1>
+    <p class="sub">Descobreix en quines llengües són les cançons que escoltes, a partir de la lletra real de cada cançó.</p>
+  </header>
 
-        const Upload = () => (
-          <svg className="w-16 h-16 mx-auto mb-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
-          </svg>
-        );
+  <nav class="tabs">
+    <button id="tabbtn-analyze" class="active">Analitza el teu historial</button>
+    <button id="tabbtn-search">Cerca una cançó</button>
+  </nav>
 
-        const Music = ({ className }) => (
-          <svg className={className} fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19V6l12-3v13M9 19c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zm12-3c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zM9 10l12-3" />
-          </svg>
-        );
+  <!-- ============ PESTANYA: ANÀLISI ============ -->
+  <section id="tab-analyze">
+    <div class="card help">
+      <h2>Com obtenir els teus fitxers de Spotify</h2>
+      <ol>
+        <li>Ves a <a href="https://www.spotify.com/account/privacy/" target="_blank" rel="noopener noreferrer">spotify.com/account/privacy/</a> i demana les teves dades (poden trigar uns dies).</li>
+        <li>Descarrega el ZIP i extreu-ne els fitxers JSON.</li>
+        <li>Puja aquí els fitxers <code>Streaming_History_Audio_*.json</code>, <code>StreamingHistory*.json</code> o <code>YourLibrary.json</code>.</li>
+      </ol>
+      <details class="how">
+        <summary>Com funciona la detecció?</summary>
+        <p>No existeix cap base de dades pública que relacioni cançó i llengua, així que la construïm al vol: per a cada cançó es descarrega la <b>lletra</b> des de <a href="https://lrclib.net" target="_blank" rel="noopener noreferrer">LRCLIB</a> (una base de dades de lletres oberta i gratuïta) i se n'analitza el text amb un detector estadístic d'idiomes (<a href="https://github.com/wooorm/franc" target="_blank" rel="noopener noreferrer">franc</a>) que identifica la llengua majoritària. Tot passa al teu navegador: les teves dades no s'envien enlloc, i els resultats es desen en una memòria cau local per no repetir consultes.</p>
+      </details>
+    </div>
 
-        const BarChart3 = ({ className }) => (
-          <svg className={className} fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
-          </svg>
-        );
+    <div class="card">
+      <div id="dropzone" class="dropzone">
+        <svg width="44" height="44" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"/></svg>
+        <p class="big" id="drop-label">Arrossega els fitxers JSON aquí, o clica per triar-los</p>
+        <p>Pots seleccionar-ne diversos alhora</p>
+        <input type="file" id="file-input" multiple accept=".json,application/json" class="hidden">
+      </div>
 
-        const Loader2 = ({ className }) => (
-          <svg className={className} fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
-          </svg>
-        );
+      <div class="controls">
+        <label for="scope">Cançons a analitzar:</label>
+        <select id="scope">
+          <option value="100">Les 100 més escoltades</option>
+          <option value="250" selected>Les 250 més escoltades</option>
+          <option value="500">Les 500 més escoltades</option>
+          <option value="1000">Les 1.000 més escoltades</option>
+          <option value="0">Totes</option>
+        </select>
+        <button id="btn-analyze" class="primary" disabled>Analitza les llengües</button>
+        <button id="btn-cancel" class="ghost hidden">Atura</button>
+      </div>
 
-        function SpotifyLanguageAnalyzer() {
-          const [files, setFiles] = useState([]);
-          const [analyzing, setAnalyzing] = useState(false);
-          const [results, setResults] = useState(null);
-          const [progress, setProgress] = useState({ current: 0, total: 0 });
-          const [accessToken, setAccessToken] = useState(null);
+      <div id="progress" class="progress hidden">
+        <div class="txt"><span id="progress-label">Analitzant…</span><span id="progress-count"></span></div>
+        <div class="rail"><div id="progress-fill" class="fill" style="width:0%"></div></div>
+      </div>
+      <p id="analyze-msg" class="msg hidden"></p>
+    </div>
 
-          // Obtenir token d'accés de Spotify (Client Credentials Flow)
-          const getSpotifyToken = async () => {
-            if (accessToken) return accessToken;
+    <div id="results" class="hidden">
+      <div class="tiles">
+        <div class="tile"><div class="label">Cançons analitzades</div><div class="value" id="stat-tracks">–</div></div>
+        <div class="tile"><div class="label">Reproduccions</div><div class="value" id="stat-plays">–</div></div>
+        <div class="tile"><div class="label">Llengua principal</div><div class="value" id="stat-top">–</div></div>
+      </div>
+      <div class="card">
+        <h2>Distribució per llengua</h2>
+        <div id="lang-list"></div>
+        <div class="controls">
+          <button id="btn-csv" class="ghost">Descarrega CSV</button>
+          <button id="btn-reset" class="ghost">Analitza uns altres fitxers</button>
+        </div>
+      </div>
+    </div>
+  </section>
 
-            try {
-              const response = await fetch('https://accounts.spotify.com/api/token', {
-                method: 'POST',
-                headers: {
-                  'Content-Type': 'application/x-www-form-urlencoded',
-                },
-                body: 'grant_type=client_credentials&client_id=2c1ea588dfbc4a989e2426f8385297c3&client_secret=5c6ae99e7bbb46279df546fd0a2b57e5'
-              });
+  <!-- ============ PESTANYA: CERCADOR ============ -->
+  <section id="tab-search" class="hidden">
+    <div class="card">
+      <h2>Cerca la llengua d'una cançó</h2>
+      <p class="msg">Escriu el títol (i opcionalment l'artista) i et direm en quina llengua és, segons la seva lletra.</p>
+      <form id="search-form" class="controls">
+        <input type="text" id="search-track" placeholder="Títol de la cançó (p. ex. Sort de tu)" required>
+        <input type="text" id="search-artist" placeholder="Artista (opcional, p. ex. Oques Grasses)">
+        <button type="submit" class="primary" id="btn-search">Cerca</button>
+      </form>
+      <p id="search-msg" class="msg hidden"></p>
+      <div id="search-results"></div>
+    </div>
+  </section>
 
-              const data = await response.json();
-              setAccessToken(data.access_token);
-              return data.access_token;
-            } catch (error) {
-              console.error('Error obtenint token:', error);
-              return null;
-            }
-          };
+  <footer>
+    Tot el processament es fa al teu navegador — les teves dades de Spotify no s'envien a cap servidor.<br>
+    Lletres: <a href="https://lrclib.net" style="color:inherit">LRCLIB</a> · Detecció d'idioma: <a href="https://github.com/wooorm/franc" style="color:inherit">franc</a>
+  </footer>
+</div>
 
-          // Extreure track ID del spotify_track_uri
-          const extractTrackId = (uri) => {
-            if (!uri) return null;
-            const match = uri.match(/spotify:track:([a-zA-Z0-9]+)/);
-            return match ? match[1] : null;
-          };
+<script type="module">
+/* ---------- Detector d'idioma (franc via CDN, amb alternativa) ---------- */
+let francAll;
+try {
+  ({ francAll } = await import('https://esm.sh/franc@6'));
+} catch {
+  ({ francAll } = await import('https://cdn.jsdelivr.net/npm/franc@6/+esm'));
+}
 
-          // Obtenir metadades de Spotify
-          const getTrackMetadata = async (trackId, token) => {
-            try {
-              const response = await fetch(`https://api.spotify.com/v1/tracks/${trackId}`, {
-                headers: {
-                  'Authorization': `Bearer ${token}`
-                }
-              });
+/* Llengües considerades (ISO 639-3). Restringir la llista millora molt la
+   precisió del detector amb textos curts com les lletres de cançons. */
+const LANG_NAMES = {
+  cat: 'Català', spa: 'Castellà', eng: 'Anglès', fra: 'Francès', ita: 'Italià',
+  por: 'Portuguès', glg: 'Gallec', eus: 'Basc', deu: 'Alemany', nld: 'Neerlandès',
+  swe: 'Suec', nob: 'Noruec', dan: 'Danès', fin: 'Finès', isl: 'Islandès',
+  pol: 'Polonès', ces: 'Txec', slk: 'Eslovac', hun: 'Hongarès', ron: 'Romanès',
+  rus: 'Rus', ukr: 'Ucraïnès', srp: 'Serbi', hrv: 'Croat', bul: 'Búlgar',
+  ell: 'Grec', tur: 'Turc', arb: 'Àrab', heb: 'Hebreu', hin: 'Hindi',
+  jpn: 'Japonès', kor: 'Coreà', cmn: 'Xinès', ind: 'Indonesi', vie: 'Vietnamita',
+  tha: 'Tailandès', swh: 'Suahili',
+};
+const ONLY = Object.keys(LANG_NAMES);
+const INSTRUMENTAL = '__instrumental__';
+const UNKNOWN = '__unknown__';
+const SPECIAL_NAMES = { [INSTRUMENTAL]: 'Instrumental', [UNKNOWN]: 'Desconeguda (sense lletra trobada)' };
 
-              if (!response.ok) return null;
+function langName(code) {
+  return LANG_NAMES[code] || SPECIAL_NAMES[code] || code;
+}
 
-              const data = await response.json();
-              
-              // Obtenir informació de l'artista per deduir l'idioma
-              const artistId = data.artists[0]?.id;
-              if (!artistId) return { language: 'desconegut' };
+function detectLanguage(lyrics) {
+  const clean = lyrics.replace(/\s+/g, ' ').trim();
+  if (clean.length < 25) return null;
+  const guesses = francAll(clean, { only: ONLY });
+  const [code] = guesses[0] || ['und'];
+  return code === 'und' ? null : code;
+}
 
-              const artistResponse = await fetch(`https://api.spotify.com/v1/artists/${artistId}`, {
-                headers: {
-                  'Authorization': `Bearer ${token}`
-                }
-              });
+/* ---------- Client de LRCLIB ---------- */
+const API = 'https://lrclib.net/api';
 
-              if (!artistResponse.ok) return { language: 'desconegut' };
+async function apiGet(path) {
+  const res = await fetch(API + path);
+  if (res.status === 404) return null;
+  if (!res.ok) throw new Error('LRCLIB ha respost ' + res.status);
+  return res.json();
+}
 
-              const artistData = await artistResponse.json();
-              
-              // Deduir idioma dels gèneres i mercats
-              const genres = artistData.genres || [];
-              const markets = data.available_markets || [];
+function cleanTitle(title) {
+  return title
+    .replace(/\s*[(\[](feat|with|ft|con|amb)\.?\s[^)\]]*[)\]]/i, '')
+    .replace(/\s*-\s*(remaster(ed|itzat)?|live|en directe|single version|radio edit|bonus track|acoustic|ac[uú]stic).*$/i, '')
+    .trim();
+}
 
-              return {
-                language: deduceLanguage(genres, markets, data.artists[0].name),
-                genres: genres,
-                markets: markets
-              };
+/* Busca la lletra d'una cançó: primer coincidència exacta, després cerca. */
+async function lookupLyrics(artist, track) {
+  let rec = null;
+  try {
+    rec = await apiGet(`/get?artist_name=${encodeURIComponent(artist)}&track_name=${encodeURIComponent(track)}`);
+  } catch { /* seguim amb la cerca */ }
+  if (!rec || (!rec.plainLyrics && !rec.instrumental)) {
+    try {
+      const found = await apiGet(`/search?track_name=${encodeURIComponent(cleanTitle(track))}&artist_name=${encodeURIComponent(artist)}`);
+      if (Array.isArray(found)) rec = found.find(r => r.plainLyrics || r.instrumental) || null;
+    } catch { /* sense resultats */ }
+  }
+  if (rec?.plainLyrics) return { kind: 'lyrics', lyrics: rec.plainLyrics };
+  if (rec?.instrumental) return { kind: 'instrumental' };
+  return { kind: 'notfound' };
+}
 
-            } catch (error) {
-              console.error('Error obtenint metadades:', error);
-              return { language: 'desconegut' };
-            }
-          };
+/* Classifica una cançó en un codi de llengua (amb memòria cau local). */
+const CACHE_KEY = 'sla-lang-cache-v1';
+let cache = {};
+try { cache = JSON.parse(localStorage.getItem(CACHE_KEY) || '{}'); } catch { cache = {}; }
+let cacheDirty = 0;
 
-          // Deduir idioma basant-se en gèneres i mercats
-          const deduceLanguage = (genres, markets, artistName) => {
-            const genreStr = genres.join(' ').toLowerCase();
-            const artistLower = artistName.toLowerCase();
+function saveCache(force = false) {
+  cacheDirty++;
+  if (!force && cacheDirty % 25 !== 0) return;
+  try { localStorage.setItem(CACHE_KEY, JSON.stringify(cache)); } catch { /* quota plena */ }
+}
 
-            // Català
-            if (genreStr.includes('catalan') || genreStr.includes('rumba catalana')) {
-              return 'català';
-            }
-            if (markets.includes('AD') && markets.length < 10) return 'català';
+async function classifyTrack(artist, track) {
+  const key = (artist + '\u0001' + track).toLowerCase();
+  if (cache[key]) return cache[key];
+  const res = await lookupLyrics(artist, track);
+  let code = UNKNOWN;
+  if (res.kind === 'instrumental') code = INSTRUMENTAL;
+  else if (res.kind === 'lyrics') code = detectLanguage(res.lyrics) || UNKNOWN;
+  cache[key] = code;
+  saveCache();
+  return code;
+}
 
-            // Castellà/Llatí
-            if (genreStr.includes('spanish') || genreStr.includes('latin') || 
-                genreStr.includes('reggaeton') || genreStr.includes('urbano latino') ||
-                genreStr.includes('latin pop') || genreStr.includes('bachata') ||
-                genreStr.includes('salsa') || genreStr.includes('flamenco')) {
-              return 'castellà';
-            }
+/* ---------- Lectura dels fitxers d'exportació de Spotify ---------- */
+function extractEntries(data) {
+  // YourLibrary.json → { tracks: [{artist, track, ...}] }
+  if (data && Array.isArray(data.tracks)) {
+    return data.tracks
+      .filter(t => t.track && t.artist)
+      .map(t => ({ track: t.track, artist: t.artist, plays: 1 }));
+  }
+  if (!Array.isArray(data)) return [];
+  return data.map(e => {
+    // Historial estès (Streaming_History_Audio_*.json / endsong_*.json)
+    if (e.master_metadata_track_name && e.master_metadata_album_artist_name) {
+      if (typeof e.ms_played === 'number' && e.ms_played < 10000) return null; // salts accidentals
+      return { track: e.master_metadata_track_name, artist: e.master_metadata_album_artist_name, plays: 1 };
+    }
+    // Historial simple (StreamingHistory_music_*.json)
+    if (e.trackName && e.artistName) {
+      if (typeof e.msPlayed === 'number' && e.msPlayed < 10000) return null;
+      return { track: e.trackName, artist: e.artistName, plays: 1 };
+    }
+    return null; // pòdcasts i altres entrades
+  }).filter(Boolean);
+}
 
-            // Francès
-            if (genreStr.includes('french') || genreStr.includes('chanson')) {
-              return 'francès';
-            }
+function dedupeTracks(entries) {
+  const map = new Map();
+  for (const e of entries) {
+    const key = (e.artist + '\u0001' + e.track).toLowerCase();
+    const cur = map.get(key);
+    if (cur) cur.plays += e.plays;
+    else map.set(key, { ...e });
+  }
+  return [...map.values()].sort((a, b) => b.plays - a.plays);
+}
 
-            // Italià
-            if (genreStr.includes('italian') || genreStr.includes('italo')) {
-              return 'italià';
-            }
+/* ---------- Estat i elements de la interfície ---------- */
+const $ = id => document.getElementById(id);
+let uploadedTracks = [];
+let cancelled = false;
 
-            // Portuguès
-            if (genreStr.includes('portuguese') || genreStr.includes('fado') || 
-                genreStr.includes('bossa nova') || genreStr.includes('mpb') ||
-                genreStr.includes('samba') || genreStr.includes('brazilian')) {
-              return 'portuguès';
-            }
+/* Pestanyes */
+function showTab(name) {
+  $('tab-analyze').classList.toggle('hidden', name !== 'analyze');
+  $('tab-search').classList.toggle('hidden', name !== 'search');
+  $('tabbtn-analyze').classList.toggle('active', name === 'analyze');
+  $('tabbtn-search').classList.toggle('active', name === 'search');
+}
+$('tabbtn-analyze').addEventListener('click', () => showTab('analyze'));
+$('tabbtn-search').addEventListener('click', () => showTab('search'));
 
-            // Alemany
-            if (genreStr.includes('german') || genreStr.includes('deutsch') ||
-                genreStr.includes('neue deutsche')) {
-              return 'alemany';
-            }
+/* Càrrega de fitxers */
+const dropzone = $('dropzone');
+const fileInput = $('file-input');
+dropzone.addEventListener('click', () => fileInput.click());
+dropzone.addEventListener('dragover', e => { e.preventDefault(); dropzone.classList.add('over'); });
+dropzone.addEventListener('dragleave', () => dropzone.classList.remove('over'));
+dropzone.addEventListener('drop', e => {
+  e.preventDefault();
+  dropzone.classList.remove('over');
+  handleFiles(e.dataTransfer.files);
+});
+fileInput.addEventListener('change', () => handleFiles(fileInput.files));
 
-            // Coreà
-            if (genreStr.includes('k-pop') || genreStr.includes('korean')) {
-              return 'coreà';
-            }
+async function handleFiles(fileList) {
+  const files = [...fileList].filter(f => f.name.endsWith('.json'));
+  const msg = $('analyze-msg');
+  msg.classList.add('hidden');
+  let entries = [];
+  for (const file of files) {
+    try {
+      entries = entries.concat(extractEntries(JSON.parse(await file.text())));
+    } catch {
+      msg.textContent = `No s'ha pogut llegir «${file.name}» — no sembla un JSON vàlid de Spotify.`;
+      msg.classList.remove('hidden');
+      msg.classList.add('error');
+    }
+  }
+  uploadedTracks = dedupeTracks(entries);
+  const totalPlays = entries.length;
+  if (uploadedTracks.length) {
+    $('drop-label').textContent = `${files.length} fitxer${files.length > 1 ? 's' : ''} · ${uploadedTracks.length.toLocaleString('ca')} cançons úniques · ${totalPlays.toLocaleString('ca')} reproduccions`;
+    $('btn-analyze').disabled = false;
+    $('results').classList.add('hidden');
+  } else if (files.length) {
+    $('drop-label').textContent = 'Cap cançó trobada en aquests fitxers';
+    $('btn-analyze').disabled = true;
+  }
+}
 
-            // Japonès
-            if (genreStr.includes('j-pop') || genreStr.includes('japanese') ||
-                genreStr.includes('j-rock') || genreStr.includes('anime')) {
-              return 'japonès';
-            }
+/* ---------- Anàlisi ---------- */
+$('btn-analyze').addEventListener('click', runAnalysis);
+$('btn-cancel').addEventListener('click', () => { cancelled = true; });
+$('btn-reset').addEventListener('click', () => {
+  uploadedTracks = [];
+  fileInput.value = '';
+  $('drop-label').textContent = 'Arrossega els fitxers JSON aquí, o clica per triar-los';
+  $('btn-analyze').disabled = true;
+  $('results').classList.add('hidden');
+  window.scrollTo({ top: 0, behavior: 'smooth' });
+});
 
-            // Si té molts mercats llatins però no és específicament espanyol
-            const latinMarkets = ['ES', 'MX', 'AR', 'CO', 'CL', 'PE', 'VE'].filter(m => markets.includes(m));
-            if (latinMarkets.length >= 3) return 'castellà';
+async function runAnalysis() {
+  const scope = parseInt($('scope').value, 10);
+  const tracks = scope > 0 ? uploadedTracks.slice(0, scope) : uploadedTracks.slice();
+  cancelled = false;
 
-            // Per defecte, anglès
-            return 'anglès';
-          };
+  $('btn-analyze').disabled = true;
+  $('btn-cancel').classList.remove('hidden');
+  $('progress').classList.remove('hidden');
+  $('analyze-msg').classList.add('hidden');
+  $('results').classList.add('hidden');
 
-          const handleFileUpload = (e) => {
-            const uploadedFiles = Array.from(e.target.files);
-            setFiles(uploadedFiles);
-            setResults(null);
-          };
+  let done = 0;
+  const updateProgress = () => {
+    $('progress-count').textContent = `${done} / ${tracks.length}`;
+    $('progress-fill').style.width = (done / tracks.length * 100) + '%';
+  };
+  $('progress-label').textContent = 'Consultant lletres i detectant llengües…';
+  updateProgress();
 
-          const processFiles = async () => {
-            setAnalyzing(true);
-            setProgress({ current: 0, total: 0 });
+  // Grup de 4 treballadors en paral·lel per no saturar LRCLIB
+  let next = 0;
+  const worker = async () => {
+    while (next < tracks.length && !cancelled) {
+      const t = tracks[next++];
+      try {
+        t.lang = await classifyTrack(t.artist, t.track);
+      } catch {
+        t.lang = UNKNOWN;
+      }
+      done++;
+      updateProgress();
+    }
+  };
+  await Promise.all(Array.from({ length: 4 }, worker));
+  saveCache(true);
 
-            try {
-              // Obtenir token de Spotify
-              const token = await getSpotifyToken();
-              if (!token) {
-                throw new Error('No s\'ha pogut obtenir accés a Spotify');
-              }
+  $('btn-cancel').classList.add('hidden');
+  $('progress').classList.add('hidden');
+  $('btn-analyze').disabled = false;
 
-              let allTracks = [];
-              
-              for (const file of files) {
-                const text = await file.text();
-                const data = JSON.parse(text);
-                allTracks = allTracks.concat(data);
-              }
+  const analyzed = tracks.filter(t => t.lang);
+  if (!analyzed.length) {
+    const msg = $('analyze-msg');
+    msg.textContent = 'No s\'ha pogut analitzar cap cançó. Comprova la connexió a internet.';
+    msg.classList.remove('hidden');
+    msg.classList.add('error');
+    return;
+  }
+  renderResults(analyzed);
+}
 
-              const uniqueTracks = new Map();
-              allTracks.forEach(track => {
-                if (track.master_metadata_track_name && 
-                    track.master_metadata_album_artist_name && 
-                    track.spotify_track_uri) {
-                  const key = `${track.master_metadata_track_name}|||${track.master_metadata_album_artist_name}`;
-                  if (!uniqueTracks.has(key)) {
-                    uniqueTracks.set(key, {
-                      track: track.master_metadata_track_name,
-                      artist: track.master_metadata_album_artist_name,
-                      trackId: extractTrackId(track.spotify_track_uri),
-                      plays: 0
-                    });
-                  }
-                  uniqueTracks.get(key).plays++;
-                }
-              });
+let lastResults = [];
+function renderResults(tracks) {
+  lastResults = tracks;
+  const groups = new Map();
+  let totalPlays = 0;
+  for (const t of tracks) {
+    totalPlays += t.plays;
+    const g = groups.get(t.lang) || { code: t.lang, count: 0, plays: 0, tracks: [] };
+    g.count++;
+    g.plays += t.plays;
+    g.tracks.push(t);
+    groups.set(t.lang, g);
+  }
+  const sorted = [...groups.values()].sort((a, b) => b.count - a.count);
+  const topReal = sorted.find(g => LANG_NAMES[g.code]);
 
-              const tracksArray = Array.from(uniqueTracks.values())
-                .filter(t => t.trackId) // Només tracks amb ID vàlid
-                .slice(0, 100);
-              
-              setProgress({ current: 0, total: tracksArray.length });
+  $('stat-tracks').textContent = tracks.length.toLocaleString('ca');
+  $('stat-plays').textContent = totalPlays.toLocaleString('ca');
+  $('stat-top').textContent = topReal ? langName(topReal.code) : '–';
 
-              const languageCount = {};
-              const tracksByLanguage = {};
+  const list = $('lang-list');
+  list.innerHTML = '';
+  for (const g of sorted) {
+    const pct = g.count / tracks.length * 100;
+    const special = !LANG_NAMES[g.code];
+    const row = document.createElement('div');
+    row.className = 'langrow' + (special ? ' dim' : '');
+    row.innerHTML = `
+      <div class="head">
+        <span class="name"></span>
+        <span class="nums"><b>${pct.toFixed(1)}%</b> · ${g.count.toLocaleString('ca')} ${g.count === 1 ? 'cançó' : 'cançons'} · ${g.plays.toLocaleString('ca')} repr.</span>
+      </div>
+      <div class="rail"><div class="fill" style="width:${pct}%"></div></div>
+      <details><summary>Mostra les cançons</summary><ul></ul></details>`;
+    row.querySelector('.name').textContent = langName(g.code);
+    const ul = row.querySelector('ul');
+    for (const t of g.tracks.sort((a, b) => b.plays - a.plays)) {
+      const li = document.createElement('li');
+      const title = document.createElement('b');
+      title.textContent = t.track;
+      li.appendChild(title);
+      li.appendChild(document.createTextNode(' — ' + t.artist + ' '));
+      const plays = document.createElement('span');
+      plays.className = 'plays';
+      plays.textContent = `(${t.plays.toLocaleString('ca')} repr.)`;
+      li.appendChild(plays);
+      ul.appendChild(li);
+    }
+    list.appendChild(row);
+  }
+  $('results').classList.remove('hidden');
+  $('results').scrollIntoView({ behavior: 'smooth' });
+}
 
-              // Processar en lots per no saturar l'API
-              const batchSize = 10;
-              for (let i = 0; i < tracksArray.length; i += batchSize) {
-                const batch = tracksArray.slice(i, i + batchSize);
-                
-                const promises = batch.map(track => 
-                  getTrackMetadata(track.trackId, token)
-                    .then(metadata => ({
-                      ...track,
-                      language: metadata?.language || 'desconegut'
-                    }))
-                );
+/* Exporta els resultats en CSV */
+$('btn-csv').addEventListener('click', () => {
+  const esc = s => '"' + String(s).replace(/"/g, '""') + '"';
+  const rows = [['canco', 'artista', 'llengua', 'reproduccions']];
+  for (const t of lastResults) rows.push([t.track, t.artist, langName(t.lang), t.plays]);
+  const blob = new Blob(['﻿' + rows.map(r => r.map(esc).join(';')).join('\n')], { type: 'text/csv;charset=utf-8' });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = 'llengues-spotify.csv';
+  a.click();
+  URL.revokeObjectURL(a.href);
+});
 
-                const results = await Promise.all(promises);
+/* ---------- Cercador individual ---------- */
+$('search-form').addEventListener('submit', async e => {
+  e.preventDefault();
+  const track = $('search-track').value.trim();
+  const artist = $('search-artist').value.trim();
+  if (!track) return;
 
-                results.forEach(track => {
-                  const lang = track.language;
-                  
-                  languageCount[lang] = (languageCount[lang] || 0) + 1;
-                  if (!tracksByLanguage[lang]) {
-                    tracksByLanguage[lang] = [];
-                  }
-                  tracksByLanguage[lang].push(track);
-                });
+  const msg = $('search-msg');
+  const box = $('search-results');
+  box.innerHTML = '';
+  msg.textContent = 'Cercant…';
+  msg.classList.remove('hidden', 'error');
+  $('btn-search').disabled = true;
 
-                setProgress({ 
-                  current: Math.min(i + batchSize, tracksArray.length), 
-                  total: tracksArray.length 
-                });
+  try {
+    let results = null;
+    if (artist) {
+      results = await apiGet(`/search?track_name=${encodeURIComponent(track)}&artist_name=${encodeURIComponent(artist)}`);
+      if (!results?.length) results = await apiGet(`/search?q=${encodeURIComponent(track + ' ' + artist)}`);
+    } else {
+      results = await apiGet(`/search?q=${encodeURIComponent(track)}`);
+    }
 
-                // Petit delay entre lots
-                if (i + batchSize < tracksArray.length) {
-                  await new Promise(resolve => setTimeout(resolve, 200));
-                }
-              }
+    // Elimina duplicats (mateixa cançó i artista) prioritzant els que tenen lletra
+    const seen = new Map();
+    for (const r of results || []) {
+      const key = (r.trackName + '\u0001' + r.artistName).toLowerCase();
+      if (!seen.has(key) || (!seen.get(key).plainLyrics && r.plainLyrics)) seen.set(key, r);
+    }
+    const unique = [...seen.values()].slice(0, 8);
 
-              const total = tracksArray.length;
-              const percentages = Object.entries(languageCount)
-                .map(([lang, count]) => ({
-                  language: lang.charAt(0).toUpperCase() + lang.slice(1),
-                  count,
-                  percentage: ((count / total) * 100).toFixed(1),
-                  tracks: tracksByLanguage[lang]
-                }))
-                .sort((a, b) => b.count - a.count);
+    if (!unique.length) {
+      msg.textContent = 'No s\'ha trobat cap cançó amb aquest nom a LRCLIB.';
+      return;
+    }
+    msg.classList.add('hidden');
 
-              setResults({
-                total,
-                totalPlays: allTracks.length,
-                percentages
-              });
+    for (const r of unique) {
+      let label, isLang = false;
+      if (r.instrumental) label = 'Instrumental';
+      else if (r.plainLyrics) {
+        const code = detectLanguage(r.plainLyrics);
+        if (code) { label = langName(code); isLang = true; }
+        else label = 'Indeterminada';
+      } else label = 'Sense lletra';
 
-            } catch (error) {
-              console.error("Error complet:", error);
-              alert(`Error processant els arxius: ${error.message}\n\nMira la consola del navegador (F12) per més detalls.`);
-            }
-
-            setAnalyzing(false);
-          };
-
-          return (
-            <div className="min-h-screen bg-gradient-to-br from-green-400 via-emerald-500 to-teal-600 p-4">
-              <div className="max-w-4xl mx-auto">
-                <div className="bg-white rounded-2xl shadow-2xl p-8 mb-6">
-                  <div className="flex items-center gap-3 mb-6">
-                    <Music className="w-10 h-10 text-green-600" />
-                    <h1 className="text-3xl font-bold text-gray-800">Analitzador d'Idiomes de Spotify</h1>
-                  </div>
-
-                  <div className="mb-6 p-4 bg-blue-50 rounded-lg border border-blue-200">
-                    <h3 className="font-semibold text-blue-900 mb-2">Com obtenir els teus arxius de Spotify:</h3>
-                    <ol className="text-sm text-blue-800 space-y-1 list-decimal list-inside">
-                      <li>Ves a <a href="https://www.spotify.com/account/privacy/" target="_blank" rel="noopener noreferrer" className="underline font-medium">spotify.com/account/privacy/</a></li>
-                      <li>Desplaça't fins a "Descarrega les teves dades"</li>
-                      <li>Demana les teves dades (poden trigar uns dies)</li>
-                      <li>Descarrega el fitxer ZIP i extreu els arxius JSON d'històric</li>
-                      <li>Puja aquí els arxius que comencin amb "Streaming_History" o similar</li>
-                    </ol>
-                    <p className="mt-3 text-sm text-blue-700 font-medium">
-                      ℹ️ Usa metadades reals de Spotify via l'API oficial + base de dades d'{' '}
-                      <a href="https://annas-archive.li/torrents#aa_misc_data" target="_blank" rel="noopener noreferrer" className="underline">
-                        Anna's Archive
-                      </a>{' '}(199.9GB de metadata)
-                    </p>
-                    <p className="mt-2 text-sm text-blue-700 font-medium">📊 Analitza les primeres 100 cançons úniques</p>
-                  </div>
-
-                  <div className="border-2 border-dashed border-gray-300 rounded-xl p-8 text-center hover:border-green-500 transition-colors">
-                    <label className="cursor-pointer">
-                      <input
-                        type="file"
-                        multiple
-                        accept=".json"
-                        onChange={handleFileUpload}
-                        className="hidden"
-                      />
-                      <Upload />
-                      <p className="text-lg font-medium text-gray-700 mb-2">
-                        {files.length > 0 
-                          ? `${files.length} arxiu${files.length > 1 ? 's' : ''} seleccionat${files.length > 1 ? 's' : ''}`
-                          : 'Clica per pujar arxius JSON'
-                        }
-                      </p>
-                      <p className="text-sm text-gray-500">Pots seleccionar múltiples arxius</p>
-                    </label>
-                  </div>
-
-                  {files.length > 0 && !analyzing && !results && (
-                    <button
-                      onClick={processFiles}
-                      className="w-full mt-6 bg-green-600 hover:bg-green-700 text-white font-semibold py-3 px-6 rounded-lg transition-colors flex items-center justify-center gap-2"
-                    >
-                      <BarChart3 className="w-5 h-5" />
-                      Analitzar Idiomes
-                    </button>
-                  )}
-
-                  {analyzing && (
-                    <div className="mt-6 text-center">
-                      <Loader2 className="w-12 h-12 mx-auto mb-4 text-green-600 animate-spin" />
-                      <p className="text-lg font-medium text-gray-700">
-                        Consultant API de Spotify... {progress.current} / {progress.total}
-                      </p>
-                      <div className="mt-4 w-full bg-gray-200 rounded-full h-3">
-                        <div 
-                          className="bg-green-600 h-3 rounded-full transition-all duration-300"
-                          style={{ width: `${(progress.current / progress.total) * 100}%` }}
-                        />
-                      </div>
-                    </div>
-                  )}
-                </div>
-
-                {results && (
-                  <div className="bg-white rounded-2xl shadow-2xl p-8">
-                    <h2 className="text-2xl font-bold text-gray-800 mb-6">Resultats</h2>
-                    
-                    <div className="grid grid-cols-2 gap-4 mb-8">
-                      <div className="bg-gradient-to-br from-green-50 to-green-100 p-6 rounded-xl">
-                        <p className="text-sm text-green-700 font-medium">Cançons úniques</p>
-                        <p className="text-4xl font-bold text-green-900">{results.total}</p>
-                      </div>
-                      <div className="bg-gradient-to-br from-blue-50 to-blue-100 p-6 rounded-xl">
-                        <p className="text-sm text-blue-700 font-medium">Reproduccions totals</p>
-                        <p className="text-4xl font-bold text-blue-900">{results.totalPlays}</p>
-                      </div>
-                    </div>
-
-                    <div className="space-y-4">
-                      {results.percentages.map((item, idx) => (
-                        <div key={idx} className="border border-gray-200 rounded-xl p-6 hover:shadow-lg transition-shadow">
-                          <div className="flex justify-between items-center mb-3">
-                            <h3 className="text-xl font-bold text-gray-800">{item.language}</h3>
-                            <div className="text-right">
-                              <p className="text-3xl font-bold text-green-600">{item.percentage}%</p>
-                              <p className="text-sm text-gray-600">{item.count} cançons</p>
-                            </div>
-                          </div>
-                          <div className="w-full bg-gray-200 rounded-full h-3 mb-4">
-                            <div 
-                              className="bg-gradient-to-r from-green-500 to-emerald-500 h-3 rounded-full transition-all duration-500"
-                              style={{ width: `${item.percentage}%` }}
-                            />
-                          </div>
-                          <details className="text-sm">
-                            <summary className="cursor-pointer text-gray-600 hover:text-gray-800 font-medium">
-                              Mostra {item.tracks.length} cançons
-                            </summary>
-                            <ul className="mt-3 space-y-2 max-h-60 overflow-y-auto">
-                              {item.tracks.slice(0, 50).map((track, i) => (
-                                <li key={i} className="text-gray-700 py-1 border-b border-gray-100">
-                                  <span className="font-medium">{track.track}</span>
-                                  <span className="text-gray-500"> - {track.artist}</span>
-                                  <span className="text-gray-400 text-xs ml-2">({track.plays} reproduccions)</span>
-                                </li>
-                              ))}
-                              {item.tracks.length > 50 && (
-                                <li className="text-gray-500 italic">... i {item.tracks.length - 50} més</li>
-                              )}
-                            </ul>
-                          </details>
-                        </div>
-                      ))}
-                    </div>
-
-                    <button
-                      onClick={() => {
-                        setFiles([]);
-                        setResults(null);
-                      }}
-                      className="w-full mt-6 bg-gray-200 hover:bg-gray-300 text-gray-800 font-semibold py-3 px-6 rounded-lg transition-colors"
-                    >
-                      Analitzar altres arxius
-                    </button>
-                  </div>
-                )}
-              </div>
-            </div>
-          );
-        }
-
-        const root = ReactDOM.createRoot(document.getElementById('root'));
-        root.render(<SpotifyLanguageAnalyzer />);
-    </script>
+      const item = document.createElement('div');
+      item.className = 'result-item';
+      const info = document.createElement('div');
+      const title = document.createElement('b');
+      title.textContent = r.trackName;
+      const meta = document.createElement('div');
+      meta.className = 'meta';
+      meta.textContent = r.artistName + (r.albumName ? ' · ' + r.albumName : '');
+      info.append(title, meta);
+      const chip = document.createElement('span');
+      chip.className = 'chip' + (isLang ? ' lang' : '');
+      chip.textContent = label;
+      item.append(info, chip);
+      box.appendChild(item);
+    }
+  } catch (err) {
+    msg.textContent = 'Error de connexió amb LRCLIB: ' + err.message;
+    msg.classList.add('error');
+  } finally {
+    $('btn-search').disabled = false;
+  }
+});
+</script>
 </body>
 </html>
