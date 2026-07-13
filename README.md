@@ -7,7 +7,7 @@ Aplicació web que analitza els teus fitxers de dades de Spotify i et mostra en 
 No existeix cap base de dades pública que relacioni cançó i llengua, així que l'aplicació la construeix al vol:
 
 1. **Obté la lletra** de cada cançó des de [LRCLIB](https://lrclib.net), una base de dades de lletres oberta, gratuïta i sense clau d'API.
-2. **Detecta la llengua** de la lletra amb [franc](https://github.com/wooorm/franc), un detector estadístic d'idiomes (n-grames) que s'executa al navegador. Com que analitza el text complet de la lletra, retorna la **llengua majoritària** de la cançó.
+2. **Detecta la llengua** de la lletra amb [franc-all](https://github.com/wooorm/franc), un detector estadístic d'idiomes (n-grames) que s'executa al navegador i cobreix més de 400 llengües (incloses les minoritzades com el basc o el gallec). Com que analitza el text complet de la lletra, retorna la **llengua majoritària** de la cançó. Per a les llengües fàcilment confusibles (català, castellà, gallec, portuguès, italià, francès, basc, anglès), un segon pas desempata els candidats comptant paraules funcionals molt distintives de cada llengua («i», «amb», «perquè»… per al català; «y», «pero», «corazón»… per al castellà; «eta», «ez», «zure»… per al basc).
 3. **Desa els resultats** en una memòria cau local (`localStorage`) perquè les anàlisis següents siguin instantànies i no es repeteixin consultes.
 
 Les cançons sense lletra a LRCLIB es classifiquen com a «Desconeguda», i les marcades com a instrumentals, com a «Instrumental».
@@ -41,7 +41,7 @@ Les cançons sense lletra a LRCLIB es classifiquen com a «Desconeguda», i les 
 
 - **Frontend:** HTML + CSS + JavaScript sense dependències de compilació (un sol fitxer, `index.html`)
 - **Lletres:** [LRCLIB API](https://lrclib.net/docs) (oberta, sense autenticació, amb CORS)
-- **Detecció d'idioma:** [franc](https://github.com/wooorm/franc) carregat com a mòdul ES des de CDN
+- **Detecció d'idioma:** [franc-all](https://github.com/wooorm/franc) carregat com a mòdul ES des de CDN, més un desempat per paraules distintives
 
 ## 🔧 Ús local
 

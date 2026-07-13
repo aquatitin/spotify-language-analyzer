@@ -236,9 +236,9 @@
 /* ---------- Detector d'idioma (franc via CDN, amb alternativa) ---------- */
 let francAll;
 try {
-  ({ francAll } = await import('https://esm.sh/franc@6'));
+  ({ francAll } = await import('https://esm.sh/franc-all@7'));
 } catch {
-  ({ francAll } = await import('https://cdn.jsdelivr.net/npm/franc@6/+esm'));
+  ({ francAll } = await import('https://cdn.jsdelivr.net/npm/franc-all@7/+esm'));
 }
 
 /* Llengües considerades (ISO 639-3). Restringir la llista millora molt la
@@ -262,12 +262,41 @@ function langName(code) {
   return LANG_NAMES[code] || SPECIAL_NAMES[code] || code;
 }
 
+/* Paraules i grafies molt distintives de cada llengua dins del grup de
+   llengües fàcilment confusibles (romàniques + basc + anglès). El detector
+   estadístic sovint les empata; aquests marcadors serveixen per desempatar. */
+const MARKERS = {
+  cat: [/\b(i|jo|nit|els|amb|què|perquè|això|són|està|estàs|estem|som|vull|tinc|estic|meva|teva|seva|fins|sense|doncs|avui|demà|ahir|ningú|tothom|potser|encara|vegada|cançó|molt|més|també|però|sota|lluny|anar)\b/g, /\b[ldmtsn]'/g, /ç|l·l|à|è|ò/g],
+  spa: [/\b(y|yo|pero|aunque|dónde|cómo|canción|corazón|noche|quiero|estoy|eres|contigo|conmigo|mientras|ahora|también|nadie|luego|entonces|desde|hasta|muy|siento|tiempo)\b/g, /ñ|¿|¡|í|ó(?!s\b)/g],
+  por: [/\b(não|você|coração|saudade|minha|meu|tenho|estou|muito|tudo|onde|agora|então|até|sempre|noite|vou|pra|gente|comigo)\b/g, /ão|õe|nh[oa]|lh[oa]/g],
+  glg: [/\b(unha|moi|xa|hoxe|onte|mañá|amencer|corazón|noite|contigo)\b/g, /\bx[aeiou]/g],
+  ita: [/\b(che|perché|io|sono|sei|questo|questa|anche|così|più|quando|sempre|niente|cuore|notte|voglio|insieme|senza|dentro|come)\b/g, /\b[ldmtsn]'/g],
+  fra: [/\b(je|nous|vous|dans|avec|toujours|jamais|quand|comme|coeur|cœur|nuit|veux|ensemble|sans|c'est|j'ai|même|être|tout)\b/g, /\b[ldmtsn]'/g],
+  eus: [/\b(eta|ez|dut|zure|nire|naiz|zara|gara|bat|baina|gaur|gau|egun|maite|bihotza?|zurekin|nago|beti|dira|dela)\b/g, /tx|tz|zk/g],
+  eng: [/\b(the|and|you|your|that|with|this|never|always|heart|night|love|want|together|without|inside|when|like|time|life)\b/g],
+};
+
+function markerScore(lang, text) {
+  let n = 0;
+  for (const re of MARKERS[lang] || []) n += (text.match(re) || []).length;
+  return n;
+}
+
 function detectLanguage(lyrics) {
-  const clean = lyrics.replace(/\s+/g, ' ').trim();
+  const clean = lyrics.replace(/\s+/g, ' ').trim().toLowerCase();
   if (clean.length < 25) return null;
   const guesses = francAll(clean, { only: ONLY });
-  const [code] = guesses[0] || ['und'];
-  return code === 'und' ? null : code;
+  if (!guesses.length || guesses[0][0] === 'und') return null;
+  // Candidats gairebé empatats amb el primer segons el detector estadístic
+  const close = guesses.filter(([, s]) => s >= guesses[0][1] * 0.88).map(([c]) => c);
+  if (close.length === 1 || !close.some(c => MARKERS[c])) return guesses[0][0];
+  // Desempat per paraules distintives
+  let best = guesses[0][0], bestScore = -1;
+  for (const c of close) {
+    const s = markerScore(c, clean);
+    if (s > bestScore + 0.5) { best = c; bestScore = s; }
+  }
+  return best;
 }
 
 /* ---------- Client de LRCLIB ---------- */
@@ -305,7 +334,7 @@ async function lookupLyrics(artist, track) {
 }
 
 /* Classifica una cançó en un codi de llengua (amb memòria cau local). */
-const CACHE_KEY = 'sla-lang-cache-v1';
+const CACHE_KEY = 'sla-lang-cache-v2';
 let cache = {};
 try { cache = JSON.parse(localStorage.getItem(CACHE_KEY) || '{}'); } catch { cache = {}; }
 let cacheDirty = 0;
