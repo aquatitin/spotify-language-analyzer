@@ -15,10 +15,13 @@ Les cançons sense lletra a LRCLIB es classifiquen com a «Desconeguda», i les 
 ## ✨ Característiques
 
 - 📊 Analitza el teu historial complet (o les 100/250/500/1.000 cançons més escoltades)
-- 🔍 Cercador individual: escriu títol i artista i et diu la llengua
+- 🔍 Cercador individual: escriu títol i artista i et diu la llengua (amb el repartiment si la cançó és bilingüe, p. ex. «Català 60% · Castellà 40%»)
 - 🌍 Reconeix més de 35 llengües (català, castellà, anglès, francès, gallec, basc, japonès, coreà…)
-- 📈 Percentatges, recompte de cançons i de reproduccions per llengua
-- 📥 Exportació dels resultats en CSV
+- 📈 Percentatges, recompte de cançons, reproduccions i temps d'escolta per llengua
+- 📅 Evolució per anys: com canvia el percentatge de cada llengua al llarg del temps
+- 🎤 Rànquing dels teus artistes més escoltats amb la seva llengua
+- ✨ Curiositats: cançó i artista més escoltats, any més musical, la llengua que més repeteixes…
+- 📥 Exportació dels resultats en CSV (amb minuts escoltats per cançó)
 - 🌙 Mode clar i fosc automàtic
 - 🔒 Tot s'executa al navegador: les teves dades no s'envien a cap servidor
 

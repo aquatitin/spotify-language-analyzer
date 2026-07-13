@@ -18,6 +18,8 @@
     --rail: #efeee9;
     --chip: #f0efec;
     --danger: #d03b3b;
+    --s1: #2a78d6; --s2: #1baf7a; --s3: #eda100;
+    --s4: #008300; --s5: #4a3aa7; --s6: #e34948;
   }
   @media (prefers-color-scheme: dark) {
     :root {
@@ -33,6 +35,8 @@
       --rail: #262624;
       --chip: #383835;
       --danger: #e66767;
+      --s1: #3987e5; --s2: #199e70; --s3: #c98500;
+      --s4: #008300; --s5: #9085e9; --s6: #e66767;
     }
   }
   * { box-sizing: border-box; }
@@ -122,6 +126,25 @@
   .langrow li b { color: var(--ink); font-weight: 600; }
   .langrow li .plays { color: var(--muted); font-size: 0.82rem; }
 
+  .dot { display: inline-block; width: 10px; height: 10px; border-radius: 3px; margin-right: 8px; flex: none; }
+  .legend { display: flex; flex-wrap: wrap; gap: 6px 16px; margin: 4px 0 14px; font-size: 0.85rem; color: var(--ink-2); }
+  .legend span { display: inline-flex; align-items: center; }
+  .yearrow { display: flex; align-items: center; gap: 10px; margin: 7px 0; }
+  .yearrow .yl { width: 42px; text-align: right; font-size: 0.85rem; color: var(--muted); font-variant-numeric: tabular-nums; flex: none; }
+  .yearrow .stack { flex: 1; display: flex; gap: 2px; height: 22px; border-radius: 4px; overflow: hidden; background: var(--rail); }
+  .yearrow .seg { height: 100%; min-width: 1px; }
+  .artists { margin: 0; padding: 0; list-style: none; counter-reset: artist; }
+  .artists li { display: flex; align-items: center; gap: 10px; padding: 9px 0; border-bottom: 1px solid var(--hairline); }
+  .artists li:last-child { border-bottom: none; }
+  .artists li::before { counter-increment: artist; content: counter(artist); width: 24px; text-align: right; color: var(--muted); font-weight: 600; font-variant-numeric: tabular-nums; flex: none; }
+  .artists .who { flex: 1; min-width: 0; }
+  .artists .who b { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .artists .who .meta { color: var(--ink-2); font-size: 0.85rem; }
+  .facts { margin: 0; padding: 0; list-style: none; }
+  .facts li { padding: 8px 0; border-bottom: 1px solid var(--hairline); color: var(--ink-2); }
+  .facts li:last-child { border-bottom: none; }
+  .facts li b { color: var(--ink); }
+  .small { font-size: 0.88rem; }
   .result-item { padding: 12px 0; border-bottom: 1px solid var(--hairline); display: flex; justify-content: space-between; gap: 12px; align-items: center; }
   .result-item:last-child { border-bottom: none; }
   .result-item .meta { color: var(--ink-2); font-size: 0.9rem; }
@@ -198,11 +221,27 @@
       <div class="tiles">
         <div class="tile"><div class="label">Cançons analitzades</div><div class="value" id="stat-tracks">–</div></div>
         <div class="tile"><div class="label">Reproduccions</div><div class="value" id="stat-plays">–</div></div>
+        <div class="tile"><div class="label">Temps d'escolta</div><div class="value" id="stat-time">–</div></div>
+        <div class="tile"><div class="label">Llengües</div><div class="value" id="stat-langs">–</div></div>
         <div class="tile"><div class="label">Llengua principal</div><div class="value" id="stat-top">–</div></div>
       </div>
       <div class="card">
         <h2>Distribució per llengua</h2>
         <div id="lang-list"></div>
+      </div>
+      <div class="card hidden" id="card-evolution">
+        <h2>Evolució per any</h2>
+        <p class="msg small">Percentatge de reproduccions de cada llengua segons l'any en què les vas escoltar (només les cançons analitzades).</p>
+        <div id="evo-legend" class="legend"></div>
+        <div id="evo-chart"></div>
+      </div>
+      <div class="card">
+        <h2>Els teus artistes més escoltats</h2>
+        <ol id="artist-list" class="artists"></ol>
+      </div>
+      <div class="card">
+        <h2>Curiositats</h2>
+        <ul id="facts" class="facts"></ul>
         <div class="controls">
           <button id="btn-csv" class="ghost">Descarrega CSV</button>
           <button id="btn-reset" class="ghost">Analitza uns altres fitxers</button>
@@ -394,31 +433,47 @@ function extractEntries(data) {
   if (data && Array.isArray(data.tracks)) {
     return data.tracks
       .filter(t => t.track && t.artist)
-      .map(t => ({ track: t.track, artist: t.artist, plays: 1 }));
+      .map(t => ({ track: t.track, artist: t.artist, plays: 1, ms: 0, year: null }));
   }
   if (!Array.isArray(data)) return [];
   return data.map(e => {
     // Historial estès (Streaming_History_Audio_*.json / endsong_*.json)
     if (e.master_metadata_track_name && e.master_metadata_album_artist_name) {
       if (typeof e.ms_played === 'number' && e.ms_played < 10000) return null; // salts accidentals
-      return { track: e.master_metadata_track_name, artist: e.master_metadata_album_artist_name, plays: 1 };
+      const year = typeof e.ts === 'string' && /^\d{4}/.test(e.ts) ? e.ts.slice(0, 4) : null;
+      return { track: e.master_metadata_track_name, artist: e.master_metadata_album_artist_name, plays: 1, ms: e.ms_played || 0, year };
     }
     // Historial simple (StreamingHistory_music_*.json)
     if (e.trackName && e.artistName) {
       if (typeof e.msPlayed === 'number' && e.msPlayed < 10000) return null;
-      return { track: e.trackName, artist: e.artistName, plays: 1 };
+      const year = typeof e.endTime === 'string' && /^\d{4}/.test(e.endTime) ? e.endTime.slice(0, 4) : null;
+      return { track: e.trackName, artist: e.artistName, plays: 1, ms: e.msPlayed || 0, year };
     }
     return null; // pòdcasts i altres entrades
   }).filter(Boolean);
+}
+
+/* Formata una durada en ms de manera llegible */
+function fmtTime(ms) {
+  const h = ms / 3600000;
+  if (h >= 48) return `${Math.floor(h / 24)} dies i ${Math.round(h % 24)} h`;
+  if (h >= 10) return `${Math.round(h)} h`;
+  if (h >= 1) return `${h.toFixed(1).replace('.', ',')} h`;
+  return `${Math.round(ms / 60000)} min`;
 }
 
 function dedupeTracks(entries) {
   const map = new Map();
   for (const e of entries) {
     const key = (e.artist + '\u0001' + e.track).toLowerCase();
-    const cur = map.get(key);
-    if (cur) cur.plays += e.plays;
-    else map.set(key, { ...e });
+    let cur = map.get(key);
+    if (!cur) {
+      cur = { track: e.track, artist: e.artist, plays: 0, ms: 0, years: {} };
+      map.set(key, cur);
+    }
+    cur.plays += e.plays;
+    cur.ms += e.ms;
+    if (e.year) cur.years[e.year] = (cur.years[e.year] || 0) + e.plays;
   }
   return [...map.values()].sort((a, b) => b.plays - a.plays);
 }
@@ -467,8 +522,9 @@ async function handleFiles(fileList) {
   }
   uploadedTracks = dedupeTracks(entries);
   const totalPlays = entries.length;
+  const totalMs = entries.reduce((s, e) => s + e.ms, 0);
   if (uploadedTracks.length) {
-    $('drop-label').textContent = `${files.length} fitxer${files.length > 1 ? 's' : ''} · ${uploadedTracks.length.toLocaleString('ca')} cançons úniques · ${totalPlays.toLocaleString('ca')} reproduccions`;
+    $('drop-label').textContent = `${files.length} fitxer${files.length > 1 ? 's' : ''} · ${uploadedTracks.length.toLocaleString('ca')} cançons úniques · ${totalPlays.toLocaleString('ca')} reproduccions${totalMs > 0 ? ' · ' + fmtTime(totalMs) + ' de música' : ''}`;
     $('btn-analyze').disabled = false;
     $('results').classList.add('hidden');
   } else if (files.length) {
@@ -544,37 +600,51 @@ let lastResults = [];
 function renderResults(tracks) {
   lastResults = tracks;
   const groups = new Map();
-  let totalPlays = 0;
+  let totalPlays = 0, totalMs = 0;
   for (const t of tracks) {
     totalPlays += t.plays;
-    const g = groups.get(t.lang) || { code: t.lang, count: 0, plays: 0, tracks: [] };
+    totalMs += t.ms;
+    const g = groups.get(t.lang) || { code: t.lang, count: 0, plays: 0, ms: 0, tracks: [] };
     g.count++;
     g.plays += t.plays;
+    g.ms += t.ms;
     g.tracks.push(t);
     groups.set(t.lang, g);
   }
   const sorted = [...groups.values()].sort((a, b) => b.count - a.count);
-  const topReal = sorted.find(g => LANG_NAMES[g.code]);
+  const realLangs = sorted.filter(g => LANG_NAMES[g.code]);
+  const topReal = realLangs[0];
+
+  // Cada llengua (fins a 6) té un color fix a tots els gràfics
+  const slotOf = {};
+  realLangs.slice(0, 6).forEach((g, i) => { slotOf[g.code] = `var(--s${i + 1})`; });
+  const colorOf = code => slotOf[code] || 'var(--muted)';
 
   $('stat-tracks').textContent = tracks.length.toLocaleString('ca');
   $('stat-plays').textContent = totalPlays.toLocaleString('ca');
+  $('stat-time').textContent = totalMs > 0 ? fmtTime(totalMs) : '–';
+  $('stat-langs').textContent = realLangs.length.toLocaleString('ca');
   $('stat-top').textContent = topReal ? langName(topReal.code) : '–';
 
+  /* ---- Distribució per llengua ---- */
   const list = $('lang-list');
   list.innerHTML = '';
   for (const g of sorted) {
     const pct = g.count / tracks.length * 100;
+    const pctPlays = g.plays / totalPlays * 100;
     const special = !LANG_NAMES[g.code];
     const row = document.createElement('div');
     row.className = 'langrow' + (special ? ' dim' : '');
+    const temps = g.ms > 0 ? ` · ${fmtTime(g.ms)}` : '';
     row.innerHTML = `
       <div class="head">
-        <span class="name"></span>
-        <span class="nums"><b>${pct.toFixed(1)}%</b> · ${g.count.toLocaleString('ca')} ${g.count === 1 ? 'cançó' : 'cançons'} · ${g.plays.toLocaleString('ca')} repr.</span>
+        <span class="name"><span class="dot"></span></span>
+        <span class="nums"><b>${pct.toFixed(1).replace('.', ',')}%</b> · ${g.count.toLocaleString('ca')} ${g.count === 1 ? 'cançó' : 'cançons'} · ${g.plays.toLocaleString('ca')} repr. (${pctPlays.toFixed(1).replace('.', ',')}%)${temps}</span>
       </div>
       <div class="rail"><div class="fill" style="width:${pct}%"></div></div>
       <details><summary>Mostra les cançons</summary><ul></ul></details>`;
-    row.querySelector('.name').textContent = langName(g.code);
+    row.querySelector('.dot').style.background = special ? 'var(--muted)' : colorOf(g.code);
+    row.querySelector('.name').appendChild(document.createTextNode(langName(g.code)));
     const ul = row.querySelector('ul');
     for (const t of g.tracks.sort((a, b) => b.plays - a.plays)) {
       const li = document.createElement('li');
@@ -584,21 +654,127 @@ function renderResults(tracks) {
       li.appendChild(document.createTextNode(' — ' + t.artist + ' '));
       const plays = document.createElement('span');
       plays.className = 'plays';
-      plays.textContent = `(${t.plays.toLocaleString('ca')} repr.)`;
+      plays.textContent = `(${t.plays.toLocaleString('ca')} repr.${t.ms > 0 ? ' · ' + fmtTime(t.ms) : ''})`;
       li.appendChild(plays);
       ul.appendChild(li);
     }
     list.appendChild(row);
   }
+
+  /* ---- Evolució per any ---- */
+  const byYear = {};
+  for (const t of tracks) {
+    const key = slotOf[t.lang] ? t.lang : '__altres__';
+    for (const [year, plays] of Object.entries(t.years || {})) {
+      byYear[year] = byYear[year] || {};
+      byYear[year][key] = (byYear[year][key] || 0) + plays;
+    }
+  }
+  const years = Object.keys(byYear).sort();
+  const evoCard = $('card-evolution');
+  if (years.length >= 2) {
+    evoCard.classList.remove('hidden');
+    const evoLangs = realLangs.slice(0, 6).map(g => g.code);
+    const usedAltres = years.some(y => byYear[y].__altres__);
+    $('evo-legend').innerHTML = '';
+    for (const code of [...evoLangs, ...(usedAltres ? ['__altres__'] : [])]) {
+      const item = document.createElement('span');
+      const dot = document.createElement('span');
+      dot.className = 'dot';
+      dot.style.background = code === '__altres__' ? 'var(--muted)' : colorOf(code);
+      item.append(dot, code === '__altres__' ? 'Altres' : langName(code));
+      $('evo-legend').appendChild(item);
+    }
+    const chart = $('evo-chart');
+    chart.innerHTML = '';
+    for (const year of years) {
+      const yearTotal = Object.values(byYear[year]).reduce((s, n) => s + n, 0);
+      const rowEl = document.createElement('div');
+      rowEl.className = 'yearrow';
+      const label = document.createElement('span');
+      label.className = 'yl';
+      label.textContent = year;
+      const stack = document.createElement('div');
+      stack.className = 'stack';
+      for (const code of [...evoLangs, '__altres__']) {
+        const plays = byYear[year][code];
+        if (!plays) continue;
+        const seg = document.createElement('div');
+        seg.className = 'seg';
+        seg.style.width = (plays / yearTotal * 100) + '%';
+        seg.style.background = code === '__altres__' ? 'var(--muted)' : colorOf(code);
+        seg.title = `${year} — ${code === '__altres__' ? 'Altres' : langName(code)}: ${(plays / yearTotal * 100).toFixed(1).replace('.', ',')}% (${plays.toLocaleString('ca')} repr.)`;
+        stack.appendChild(seg);
+      }
+      rowEl.append(label, stack);
+      chart.appendChild(rowEl);
+    }
+  } else {
+    evoCard.classList.add('hidden');
+  }
+
+  /* ---- Artistes més escoltats ---- */
+  const artists = new Map();
+  for (const t of tracks) {
+    let a = artists.get(t.artist);
+    if (!a) { a = { name: t.artist, plays: 0, ms: 0, songs: 0, langs: {} }; artists.set(t.artist, a); }
+    a.plays += t.plays;
+    a.ms += t.ms;
+    a.songs++;
+    a.langs[t.lang] = (a.langs[t.lang] || 0) + t.plays;
+  }
+  const topArtists = [...artists.values()].sort((a, b) => b.plays - a.plays).slice(0, 10);
+  const ol = $('artist-list');
+  ol.innerHTML = '';
+  for (const a of topArtists) {
+    const mainLang = Object.entries(a.langs).sort((x, y) => y[1] - x[1])[0][0];
+    const li = document.createElement('li');
+    const who = document.createElement('div');
+    who.className = 'who';
+    const nom = document.createElement('b');
+    nom.textContent = a.name;
+    const meta = document.createElement('div');
+    meta.className = 'meta';
+    meta.textContent = `${a.songs} ${a.songs === 1 ? 'cançó' : 'cançons'} · ${a.plays.toLocaleString('ca')} repr.${a.ms > 0 ? ' · ' + fmtTime(a.ms) : ''}`;
+    who.append(nom, meta);
+    const chip = document.createElement('span');
+    chip.className = 'chip' + (LANG_NAMES[mainLang] ? ' lang' : '');
+    chip.textContent = langName(mainLang);
+    li.append(who, chip);
+    ol.appendChild(li);
+  }
+
+  /* ---- Curiositats ---- */
+  const facts = [];
+  const topTrack = [...tracks].sort((a, b) => b.plays - a.plays)[0];
+  if (topTrack) facts.push(`🎵 La teva cançó més escoltada és <b>${escapeHtml(topTrack.track)}</b> — ${escapeHtml(topTrack.artist)}, amb <b>${topTrack.plays.toLocaleString('ca')} reproduccions</b>${topTrack.ms > 0 ? ` (${fmtTime(topTrack.ms)} de la teva vida!)` : ''}. Llengua: ${langName(topTrack.lang)}.`);
+  if (topArtists[0]) facts.push(`🎤 El teu artista més escoltat és <b>${escapeHtml(topArtists[0].name)}</b>, amb ${topArtists[0].plays.toLocaleString('ca')} reproduccions${topArtists[0].ms > 0 ? ` i ${fmtTime(topArtists[0].ms)} d'escolta` : ''}.`);
+  if (totalMs > 0) facts.push(`⏱️ En total has passat <b>${fmtTime(totalMs)}</b> escoltant aquestes cançons.`);
+  if (years.length >= 2) {
+    const bestYear = years.map(y => [y, Object.values(byYear[y]).reduce((s, n) => s + n, 0)]).sort((a, b) => b[1] - a[1])[0];
+    facts.push(`📅 El teu any més musical va ser el <b>${bestYear[0]}</b>, amb ${bestYear[1].toLocaleString('ca')} reproduccions.`);
+  }
+  const repetides = realLangs.filter(g => g.count >= 3).sort((a, b) => b.plays / b.count - a.plays / a.count)[0];
+  if (repetides && realLangs.length >= 2) facts.push(`🔁 La llengua que més repeteixes és el <b>${langName(repetides.code).toLowerCase()}</b>: de mitjana escoltes cada cançó ${(repetides.plays / repetides.count).toFixed(1).replace('.', ',')} vegades.`);
+  const unCop = tracks.filter(t => t.plays === 1).length;
+  if (unCop > 0) facts.push(`1️⃣ Un ${(unCop / tracks.length * 100).toFixed(0)}% de les cançons només les has escoltat una vegada.`);
+  const bilByLang = topReal && totalPlays > 0 ? (topReal.plays / totalPlays * 100).toFixed(1).replace('.', ',') : null;
+  if (topReal && bilByLang) facts.push(`🌍 El <b>${langName(topReal.code).toLowerCase()}</b> és la teva llengua principal: ${(topReal.count / tracks.length * 100).toFixed(1).replace('.', ',')}% de les cançons i ${bilByLang}% de les reproduccions.`);
+  $('facts').innerHTML = facts.map(f => `<li>${f}</li>`).join('');
+
   $('results').classList.remove('hidden');
   $('results').scrollIntoView({ behavior: 'smooth' });
+}
+
+function escapeHtml(s) {
+  return String(s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
 }
 
 /* Exporta els resultats en CSV */
 $('btn-csv').addEventListener('click', () => {
   const esc = s => '"' + String(s).replace(/"/g, '""') + '"';
-  const rows = [['canco', 'artista', 'llengua', 'reproduccions']];
-  for (const t of lastResults) rows.push([t.track, t.artist, langName(t.lang), t.plays]);
+  const rows = [['canco', 'artista', 'llengua', 'reproduccions', 'minuts_escoltats']];
+  for (const t of lastResults) rows.push([t.track, t.artist, langName(t.lang), t.plays, Math.round(t.ms / 60000)]);
   const blob = new Blob(['﻿' + rows.map(r => r.map(esc).join(';')).join('\n')], { type: 'text/csv;charset=utf-8' });
   const a = document.createElement('a');
   a.href = URL.createObjectURL(blob);
