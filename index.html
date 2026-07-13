@@ -282,8 +282,7 @@ function markerScore(lang, text) {
   return n;
 }
 
-function detectLanguage(lyrics) {
-  const clean = lyrics.replace(/\s+/g, ' ').trim().toLowerCase();
+function detectChunk(clean) {
   if (clean.length < 25) return null;
   const guesses = francAll(clean, { only: ONLY });
   if (!guesses.length || guesses[0][0] === 'und') return null;
@@ -297,6 +296,38 @@ function detectLanguage(lyrics) {
     if (s > bestScore + 0.5) { best = c; bestScore = s; }
   }
   return best;
+}
+
+/* Moltes cançons barregen llengües (p. ex. català i castellà). Per trobar la
+   llengua MAJORITÀRIA, dividim la lletra en trossos d'uns 150 caràcters
+   (2-4 versos), detectem la llengua de cada tros i sumem quants caràcters
+   ocupa cadascuna. Retorna { code, mix: [{code, pct}, …] }. */
+function detectLanguageMix(lyrics) {
+  const lines = lyrics.split('\n').map(l => l.replace(/\s+/g, ' ').trim().toLowerCase()).filter(l => l.length > 1);
+  const text = lines.join(' ');
+  if (text.length < 25) return null;
+  const chunks = [];
+  let cur = '';
+  for (const line of lines) {
+    cur = cur ? cur + ' ' + line : line;
+    if (cur.length >= 150) { chunks.push(cur); cur = ''; }
+  }
+  if (cur) {
+    if (cur.length >= 60 || !chunks.length) chunks.push(cur);
+    else chunks[chunks.length - 1] += ' ' + cur;
+  }
+  const byLang = {};
+  for (const chunk of chunks) {
+    const code = detectChunk(chunk);
+    if (code) byLang[code] = (byLang[code] || 0) + chunk.length;
+  }
+  const entries = Object.entries(byLang).sort((a, b) => b[1] - a[1]);
+  if (!entries.length) {
+    const code = detectChunk(text);
+    return code ? { code, mix: [{ code, pct: 100 }] } : null;
+  }
+  const total = entries.reduce((s, [, n]) => s + n, 0);
+  return { code: entries[0][0], mix: entries.map(([c, n]) => ({ code: c, pct: n / total * 100 })) };
 }
 
 /* ---------- Client de LRCLIB ---------- */
@@ -334,7 +365,7 @@ async function lookupLyrics(artist, track) {
 }
 
 /* Classifica una cançó en un codi de llengua (amb memòria cau local). */
-const CACHE_KEY = 'sla-lang-cache-v2';
+const CACHE_KEY = 'sla-lang-cache-v3';
 let cache = {};
 try { cache = JSON.parse(localStorage.getItem(CACHE_KEY) || '{}'); } catch { cache = {}; }
 let cacheDirty = 0;
@@ -351,7 +382,7 @@ async function classifyTrack(artist, track) {
   const res = await lookupLyrics(artist, track);
   let code = UNKNOWN;
   if (res.kind === 'instrumental') code = INSTRUMENTAL;
-  else if (res.kind === 'lyrics') code = detectLanguage(res.lyrics) || UNKNOWN;
+  else if (res.kind === 'lyrics') code = detectLanguageMix(res.lyrics)?.code || UNKNOWN;
   cache[key] = code;
   saveCache();
   return code;
@@ -617,8 +648,15 @@ $('search-form').addEventListener('submit', async e => {
       let label, isLang = false;
       if (r.instrumental) label = 'Instrumental';
       else if (r.plainLyrics) {
-        const code = detectLanguage(r.plainLyrics);
-        if (code) { label = langName(code); isLang = true; }
+        const res = detectLanguageMix(r.plainLyrics);
+        if (res) {
+          isLang = true;
+          // Si la cançó és clarament bilingüe, mostra el repartiment
+          const parts = res.mix.filter(m => m.pct >= 20);
+          label = parts.length > 1
+            ? parts.map(m => `${langName(m.code)} ${Math.round(m.pct)}%`).join(' · ')
+            : langName(res.code);
+        }
         else label = 'Indeterminada';
       } else label = 'Sense lletra';
 
